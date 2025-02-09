@@ -1,141 +1,129 @@
-<!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <title>Schedule Manager</title>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TimeWise - Управление временем</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; }
-        .section { margin-bottom: 30px; }
-        .form-group { margin-bottom: 15px; }
-        input, button { width: 100%; padding: 10px; margin-bottom: 10px; }
-        .nav { display: flex; justify-content: space-between; margin-bottom: 20px; }
-        .nav button { flex: 1; margin: 0 5px; }
-        .task-list { margin-top: 20px; }
-        .task-item { padding: 10px; border: 1px solid #ccc; margin-bottom: 10px; border-radius: 5px; }
+        * {
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .section {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        input, button {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        .time-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- Навигация -->
-        <div class="nav">
-            <button onclick="showMainPage()">Главная</button>
-            <button onclick="showAddTaskPage()">Добавить задачу</button>
-            <button onclick="showAddTimerPage()">Добавить таймер</button>
-        </div>
-
-        <!-- Основная страница -->
-        <div id="mainPage">
-            <h2>Ваше расписание</h2>
-            <div id="scheduleList" class="task-list">
-                <!-- Сюда будут загружены задачи -->
-            </div>
-        </div>
-
-        <!-- Страница добавления задачи -->
-        <div id="addTaskPage" style="display: none;">
-            <h2>Добавить задачу</h2>
+        <div class="section">
+            <h2>📅 Добавить задачу</h2>
             <div class="form-group">
                 <input type="date" id="taskDate" required>
             </div>
-            <div class="form-group">
+            <div class="form-group time-inputs">
                 <input type="time" id="startTime" required>
                 <input type="time" id="endTime" required>
             </div>
             <div class="form-group">
-                <input type="text" id="taskDesc" placeholder="Описание" required>
+                <input type="text" id="taskDesc" placeholder="Описание задачи" required>
             </div>
-            <button onclick="addTask()">Добавить</button>
-            <button onclick="showMainPage()">Назад</button>
+            <button onclick="addTask()">Добавить в расписание</button>
         </div>
 
-        <!-- Страница добавления таймера -->
-        <div id="addTimerPage" style="display: none;">
-            <h2>Установить таймер</h2>
+        <div class="section">
+            <h2>⏱ Установить таймер</h2>
             <div class="form-group">
-                <input type="number" id="timerSeconds" placeholder="Секунды" required>
+                <input type="number" id="timerSeconds" 
+                       placeholder="Длительность в секундах" 
+                       min="1" required>
             </div>
-            <button onclick="setTimer()">Установить</button>
-            <button onclick="showMainPage()">Назад</button>
+            <button onclick="setTimer()">Запустить таймер</button>
         </div>
     </div>
 
     <script>
-        // Функции для навигации
-        function showMainPage() {
-            document.getElementById('mainPage').style.display = 'block';
-            document.getElementById('addTaskPage').style.display = 'none';
-            document.getElementById('addTimerPage').style.display = 'none';
-            loadSchedule(); // Загружаем расписание при возврате на главную страницу
-        }
+        // Инициализация Telegram Web App
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();
 
-        function showAddTaskPage() {
-            document.getElementById('mainPage').style.display = 'none';
-            document.getElementById('addTaskPage').style.display = 'block';
-            document.getElementById('addTimerPage').style.display = 'none';
-        }
-
-        function showAddTimerPage() {
-            document.getElementById('mainPage').style.display = 'none';
-            document.getElementById('addTaskPage').style.display = 'none';
-            document.getElementById('addTimerPage').style.display = 'block';
-        }
-
-        // Загрузка расписания
-        function loadSchedule() {
-            Telegram.WebApp.sendData(JSON.stringify({ action: 'view_schedule' }));
-        }
-
-        // Обработка данных от бота
-        Telegram.WebApp.onEvent('mainButtonClicked', function() {
-            const data = JSON.parse(Telegram.WebApp.sendData());
-            if (data.action === 'view_schedule') {
-                const scheduleList = document.getElementById('scheduleList');
-                scheduleList.innerHTML = '';
-                if (data.tasks && data.tasks.length > 0) {
-                    data.tasks.forEach(task => {
-                        const taskItem = document.createElement('div');
-                        taskItem.className = 'task-item';
-                        taskItem.innerHTML = `
-                            <strong>📅 ${task.date}</strong><br>
-                            ⏰ ${task.time_range}: ${task.description}
-                        `;
-                        scheduleList.appendChild(taskItem);
-                    });
-                } else {
-                    scheduleList.innerHTML = '<p>Расписание пусто.</p>';
-                }
-            }
-        });
-
-        // Добавление задачи
         function addTask() {
-            const data = {
+            const taskData = {
                 action: 'add_task',
                 date: document.getElementById('taskDate').value,
                 start_time: document.getElementById('startTime').value,
                 end_time: document.getElementById('endTime').value,
                 description: document.getElementById('taskDesc').value
             };
-            Telegram.WebApp.sendData(JSON.stringify(data));
-            showMainPage(); // Возврат на главную страницу после добавления
+            Telegram.WebApp.sendData(JSON.stringify(taskData));
         }
 
-        // Установка таймера
         function setTimer() {
-            const data = {
-                action: 'set_timer',
-                duration: document.getElementById('timerSeconds').value
-            };
-            Telegram.WebApp.sendData(JSON.stringify(data));
-            showMainPage(); // Возврат на главную страницу после установки
+            const seconds = document.getElementById('timerSeconds').value;
+            if (seconds > 0) {
+                const timerData = {
+                    action: 'set_timer',
+                    duration: seconds
+                };
+                Telegram.WebApp.sendData(JSON.stringify(timerData));
+            }
         }
 
-        // Инициализация
-        Telegram.WebApp.ready();
-        Telegram.WebApp.expand();
-        showMainPage(); // Показываем главную страницу при загрузке
+        // Закрытие веб-приложения после отправки данных
+        Telegram.WebApp.onEvent('webAppDataReceived', function() {
+            Telegram.WebApp.close();
+        });
     </script>
 </body>
 </html>
