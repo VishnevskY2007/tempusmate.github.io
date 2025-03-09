@@ -1,129 +1,144 @@
-<html lang="ru">
+<!DOCTYPE html>
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TimeWise - Управление временем</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <title>Schedule & Timer Manager</title>
     <style>
-        * {
-            box-sizing: border-box;
-            font-family: 'Arial', sans-serif;
-        }
-
         body {
-            margin: 0;
-            padding: 20px;
-            background: #f5f5f5;
+            font-family: Arial, sans-serif;
+            padding: 15px;
+            background: #f0f2f5;
         }
-
         .container {
             max-width: 600px;
             margin: 0 auto;
         }
-
-        .section {
+        .btn {
+            background: #0088cc;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            margin: 5px;
+            cursor: pointer;
+            width: 100%;
+        }
+        .calendar {
             background: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-
-        h2 {
-            color: #2c3e50;
-            margin-top: 0;
-        }
-
-        .form-group {
+            padding: 15px;
+            border-radius: 10px;
             margin-bottom: 15px;
         }
-
-        input, button {
+        .task-list {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        input, textarea {
             width: 100%;
-            padding: 12px;
+            padding: 8px;
+            margin: 5px 0;
             border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 16px;
-        }
-
-        button {
-            background: #3498db;
-            color: white;
-            border: none;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-
-        button:hover {
-            background: #2980b9;
-        }
-
-        .time-inputs {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
+            border-radius: 4px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="section">
-            <h2>📅 Добавить задачу</h2>
-            <div class="form-group">
-                <input type="date" id="taskDate" required>
-            </div>
-            <div class="form-group time-inputs">
-                <input type="time" id="startTime" required>
-                <input type="time" id="endTime" required>
-            </div>
-            <div class="form-group">
-                <input type="text" id="taskDesc" placeholder="Описание задачи" required>
-            </div>
-            <button onclick="addTask()">Добавить в расписание</button>
+        <div id="mainMenu">
+            <button class="btn" onclick="showSection('schedule')">🗓️ Расписание</button>
+            <button class="btn" onclick="showSection('timer')">⏱️ Таймеры</button>
+            <button class="btn" onclick="showAddTaskForm()">➕ Новая задача</button>
         </div>
 
-        <div class="section">
-            <h2>⏱ Установить таймер</h2>
-            <div class="form-group">
-                <input type="number" id="timerSeconds" 
-                       placeholder="Длительность в секундах" 
-                       min="1" required>
+        <div id="scheduleSection" class="hidden">
+            <div class="calendar">
+                <h3>Календарь</h3>
+                <input type="date" id="calendarDate" onchange="loadSchedule()">
             </div>
-            <button onclick="setTimer()">Запустить таймер</button>
+            <div class="task-list" id="tasks"></div>
+        </div>
+
+        <div id="timerSection" class="hidden">
+            <div class="task-list">
+                <h3>Активные таймеры</h3>
+                <div id="activeTimers"></div>
+                <button class="btn" onclick="showTimerForm()">⏰ Новый таймер</button>
+            </div>
+        </div>
+
+        <div id="addTaskForm" class="hidden">
+            <h3>Новая задача</h3>
+            <input type="date" id="taskDate" required>
+            <input type="time" id="startTime" required>
+            <input type="time" id="endTime" required>
+            <textarea id="taskDesc" placeholder="Описание" required></textarea>
+            <button class="btn" onclick="saveTask()">Сохранить</button>
+            <button class="btn" onclick="showMainMenu()">Отмена</button>
+        </div>
+
+        <div id="addTimerForm" class="hidden">
+            <h3>Новый таймер</h3>
+            <input type="number" id="timerSeconds" placeholder="Секунды" required>
+            <button class="btn" onclick="setTimer()">Установить</button>
+            <button class="btn" onclick="showMainMenu()">Отмена</button>
         </div>
     </div>
 
     <script>
-        // Инициализация Telegram Web App
-        Telegram.WebApp.ready();
-        Telegram.WebApp.expand();
+        function showSection(section) {
+            document.querySelectorAll('div[id$="Section"], div[id$="Form"]').forEach(el => {
+                el.style.display = 'none';
+            });
+            document.getElementById(section + 'Section').style.display = 'block';
+        }
 
-        function addTask() {
-            const taskData = {
-                action: 'add_task',
+        function showAddTaskForm() {
+            document.getElementById('mainMenu').style.display = 'none';
+            document.getElementById('addTaskForm').style.display = 'block';
+        }
+
+        function showTimerForm() {
+            document.getElementById('mainMenu').style.display = 'none';
+            document.getElementById('addTimerForm').style.display = 'block';
+        }
+
+        function showMainMenu() {
+            document.querySelectorAll('div').forEach(el => {
+                el.style.display = 'none';
+            });
+            document.getElementById('mainMenu').style.display = 'block';
+        }
+
+        // Взаимодействие с ботом через Telegram API
+        function saveTask() {
+            const task = {
                 date: document.getElementById('taskDate').value,
-                start_time: document.getElementById('startTime').value,
-                end_time: document.getElementById('endTime').value,
-                description: document.getElementById('taskDesc').value
+                start: document.getElementById('startTime').value,
+                end: document.getElementById('endTime').value,
+                desc: document.getElementById('taskDesc').value
             };
-            Telegram.WebApp.sendData(JSON.stringify(taskData));
+            
+            Telegram.WebApp.sendData(JSON.stringify({
+                action: 'add_task',
+                data: task
+            }));
+            showMainMenu();
         }
 
         function setTimer() {
             const seconds = document.getElementById('timerSeconds').value;
-            if (seconds > 0) {
-                const timerData = {
-                    action: 'set_timer',
-                    duration: seconds
-                };
-                Telegram.WebApp.sendData(JSON.stringify(timerData));
-            }
+            Telegram.WebApp.sendData(JSON.stringify({
+                action: 'set_timer',
+                data: seconds
+            }));
+            showMainMenu();
         }
 
-        // Закрытие веб-приложения после отправки данных
-        Telegram.WebApp.onEvent('webAppDataReceived', function() {
-            Telegram.WebApp.close();
-        });
+        // Инициализация Web App
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();
     </script>
 </body>
 </html>
